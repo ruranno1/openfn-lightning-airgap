@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: openfn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  lightning:
+    image: openfn/lightning:v2.16.6
+    container_name: openfn-lightning
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      PRIMARY_ENCRYPTION_KEY: ${PRIMARY_ENCRYPTION_KEY}
+      WORKER_RUNS_PRIVATE_KEY: ${WORKER_RUNS_PRIVATE_KEY}
+      WORKER_SECRET: ${WORKER_SECRET}
+      PHX_HOST: ${LIGHTNING_HOST}
+      LISTEN_ADDRESS: ${LISTEN_ADDRESS}
+      PORT: ${LIGHTNING_PORT}
+      USAGE_TRACKING_ENABLED: ${USAGE_TRACKING_ENABLED}
+    ports:
+      - "${LIGHTNING_PORT}:${LIGHTNING_PORT}"
+    command: ["sh", "-c", "bin/migrate && bin/server"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  ws-worker:
+    image: openfn/ws-worker:latest
+    container_name: openfn-ws-worker
+    restart: unless-stopped
+    depends_on:
+      - lightning
+    env_file:
+      - .env
+    environment:
+      WORKER_SECRET: ${WORKER_SECRET}
+      WORKER_LIGHTNING_PUBLIC_KEY: ${WORKER_LIGHTNING_PUBLIC_KEY}
+      NODE_OPTIONS: ${NODE_OPTIONS}
+    command: ["pnpm", "start:prod", "-l", "ws://lightning:4000/worker"]
+    expose:
+      - "2222"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  postgres_data:

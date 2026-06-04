@@ -1,0 +1,7 @@
+.env
+*.tar
+*.tar.gz
+*.sha256
+bundle/dist/
+bundle/build/
+node_modules/
