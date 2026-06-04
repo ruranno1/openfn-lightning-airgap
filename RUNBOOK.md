@@ -24,7 +24,9 @@ The target server is assumed to have:
 
 The IT focal point should receive this file:
 
-`openfn-lightning-airgap-v2.16.6.tar.gz`
+```text
+openfn-lightning-airgap-v2.16.6.tar.gz
+```
 
 This bundle contains:
 
@@ -42,21 +44,25 @@ Copy the bundle to the air-gapped server using `scp` or USB.
 
 Example using `scp`:
 
-`scp openfn-lightning-airgap-v2.16.6.tar.gz user@SERVER_IP:/tmp/`
+```bash
+scp openfn-lightning-airgap-v2.16.6.tar.gz user@SERVER_IP:/tmp/
+```
 
 Then connect to the server:
 
-`ssh user@SERVER_IP`
+```bash
+ssh user@SERVER_IP
+```
 
 ## Step 2: Extract the bundle
 
 Run:
 
-`cd /tmp`
-
-`tar -xzf openfn-lightning-airgap-v2.16.6.tar.gz`
-
-`cd openfn-lightning-airgap-v2.16.6`
+```bash
+cd /tmp
+tar -xzf openfn-lightning-airgap-v2.16.6.tar.gz
+cd openfn-lightning-airgap-v2.16.6
+```
 
 ## Step 3: Verify the bundle integrity
 
@@ -64,11 +70,15 @@ Before installing, verify that the bundle was not corrupted during transfer.
 
 Run:
 
-`./check-bundle.sh`
+```bash
+./check-bundle.sh
+```
 
 Expected result:
 
-`SUCCESS: Bundle integrity check passed.`
+```text
+SUCCESS: Bundle integrity check passed.
+```
 
 If this check fails, stop the installation and transfer the bundle again.
 
@@ -76,11 +86,15 @@ If this check fails, stop the installation and transfer the bundle again.
 
 Run:
 
-`./generate-env.sh`
+```bash
+./generate-env.sh
+```
 
 Expected result:
 
-`SUCCESS: .env generated.`
+```text
+SUCCESS: .env generated.
+```
 
 This script creates a `.env` file from `env.example`.
 
@@ -99,40 +113,51 @@ The `.env` file contains sensitive values. It must not be shared publicly or com
 
 Run:
 
-`./install.sh`
+```bash
+./install.sh
+```
 
 This script will:
 
-* check that Docker is available
-* check that Docker Compose v2 is available
-* load Docker images from the local bundle
-* start PostgreSQL
-* start OpenFn Lightning
-* start the worker
+* check that Docker is available,
+* check that Docker Compose v2 is available,
+* load Docker images from the local bundle,
+* start PostgreSQL,
+* start OpenFn Lightning,
+* start the worker.
 
 Expected result:
 
-`Install step completed. Run ./verify.sh to confirm Lightning is working.`
+```text
+Install step completed. Run ./verify.sh to confirm Lightning is working.
+```
 
 ## Step 6: Verify the installation
 
 Run:
 
-`./verify.sh`
+```bash
+./verify.sh
+```
 
 Expected result:
 
-`SUCCESS: Lightning is running and responding at http://localhost:4000`
+```text
+SUCCESS: Lightning is running and responding at http://localhost:4000
+```
 
 A manual test can also be done with:
 
-`curl -I http://localhost:4000`
+```bash
+curl -I http://localhost:4000
+```
 
 A valid response may show:
 
-`HTTP/1.1 302 Found`
-
-`location: /first_setup`
+```text
+HTTP/1.1 302 Found
+location: /first_setup
+```
 
 This is a successful result. It means Lightning is running and redirecting to the first setup page.
 
@@ -140,59 +165,101 @@ This is a successful result. It means Lightning is running and redirecting to th
 
 Check service status:
 
-`docker compose ps`
+```bash
+docker compose ps
+```
 
 View Lightning logs:
 
-`docker compose logs --tail=100 lightning`
+```bash
+docker compose logs --tail=100 lightning
+```
 
 View PostgreSQL logs:
 
-`docker compose logs --tail=100 postgres`
+```bash
+docker compose logs --tail=100 postgres
+```
 
 View worker logs:
 
-`docker compose logs --tail=100 ws-worker`
+```bash
+docker compose logs --tail=100 ws-worker
+```
 
 Stop all services:
 
-`docker compose down`
+```bash
+docker compose down
+```
 
 Start services again:
 
-`docker compose up -d`
+```bash
+docker compose up -d
+```
 
 Restart services:
 
-`docker compose restart`
+```bash
+docker compose restart
+```
 
 ## Failure scenario: Lightning container keeps restarting
+
+### Why I selected this scenario
+
+I selected this scenario because it is realistic in this environment. Lightning depends on correctly generated secrets, especially the worker private key. If the key is missing, corrupted, or not in the expected format, the Lightning container will start and then immediately crash.
+
+This is a likely issue for an air-gapped installation because the `.env` file is generated locally on the server.
 
 ### Symptom
 
 When running:
 
-`docker compose ps`
+```bash
+docker compose ps
+```
 
 The IT focal point may see:
 
-`openfn-lightning   Restarting`
+```text
+openfn-lightning   Restarting
+```
+
+Lightning will not respond on port 4000.
+
+Running:
+
+```bash
+curl -I http://localhost:4000
+```
+
+may return:
+
+```text
+Connection refused
+```
 
 ### Diagnosis
 
 Check the Lightning logs:
 
-`docker compose logs --tail=100 lightning`
-
-### Possible cause 1: Invalid worker key
+```bash
+docker compose logs --tail=100 lightning
+```
 
 The logs may show:
 
-`WORKER_RUNS_PRIVATE_KEY could not be parsed as a valid key`
+```text
+WORKER_RUNS_PRIVATE_KEY could not be parsed as a valid key
+```
 
 or:
 
-`Could not decode PEM`
+```text
+Could not decode PEM
+```
 
 This means the worker private key in `.env` is missing, corrupted, or not correctly formatted.
 
@@ -202,35 +269,58 @@ Regenerate the `.env` file.
 
 Run:
 
-`docker compose down`
+```bash
+docker compose down
+cp .env .env.backup
+rm .env
+./generate-env.sh
+./install.sh
+./verify.sh
+```
 
-`cp .env .env.backup`
+Expected final result:
 
-`rm .env`
+```text
+SUCCESS: Lightning is running and responding at http://localhost:4000
+```
 
-`./generate-env.sh`
+### Why this fix works
 
-`./install.sh`
+The `generate-env.sh` script creates a new worker private key and public key, converts them to the expected format, and writes them into `.env`.
 
-`./verify.sh`
+This avoids manually editing long key values and reduces the risk of formatting mistakes.
 
-### Possible cause 2: PostgreSQL SSL error
+## Other checks
 
-The logs may show:
+If Lightning still does not start, check the logs again:
 
-`Postgrex.Error: ssl not available`
+```bash
+docker compose logs --tail=100 lightning
+```
 
-This means Lightning tried to connect to PostgreSQL using SSL, but the local Docker PostgreSQL container does not provide SSL.
+### PostgreSQL SSL error
+
+If the logs show:
+
+```text
+Postgrex.Error: ssl not available
+```
+
+then Lightning is trying to use SSL to connect to the local PostgreSQL container.
 
 The generated database URL should end with:
 
-`?ssl=false`
+```text
+?ssl=false
+```
 
 Example expected format:
 
-`postgresql://lightning:<password>@postgres:5432/lightning?ssl=false`
+```text
+postgresql://lightning:<password>@postgres:5432/lightning?ssl=false
+```
 
-### Possible cause 3: Invalid database URL
+### Invalid database URL
 
 If the database password contains special characters such as `/`, the database URL can break.
 
@@ -240,8 +330,12 @@ This bundle avoids that by generating the PostgreSQL password using hexadecimal 
 
 The installation is successful when:
 
-`./verify.sh`
+```bash
+./verify.sh
+```
 
 returns:
 
-`SUCCESS: Lightning is running and responding at http://localhost:4000`
+```text
+SUCCESS: Lightning is running and responding at http://localhost:4000
+```

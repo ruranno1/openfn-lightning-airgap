@@ -10,7 +10,9 @@ The package is designed so that the bundle is built on an internet-connected mac
 
 OpenFn Lightning version:
 
-`v2.16.6`
+```text
+v2.16.6
+```
 
 Images included in the generated bundle:
 
@@ -20,75 +22,71 @@ Images included in the generated bundle:
 
 ## Repository layout
 
-`bundle/`
+```text
+bundle/
+  build-bundle.sh
+  docker-compose.yml
+  env.example
+  generate-env.sh
+  install.sh
+  verify.sh
+  check-bundle.sh
 
-`bundle/build-bundle.sh`
-
-`bundle/docker-compose.yml`
-
-`bundle/env.example`
-
-`bundle/generate-env.sh`
-
-`bundle/install.sh`
-
-`bundle/verify.sh`
-
-`bundle/check-bundle.sh`
-
-`RUNBOOK.md`
-
-`DECISIONS.md`
-
-`README.md`
+RUNBOOK.md
+DECISIONS.md
+README.md
+```
 
 ## Build the bundle
 
 Run this on an internet-connected Linux machine:
 
-`cd bundle`
-
-`./build-bundle.sh`
+```bash
+cd bundle
+./build-bundle.sh
+```
 
 Expected output:
 
-`bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz`
+```text
+bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz
+bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz.sha256
+```
 
-`bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz.sha256`
+The generated tarball is not committed to Git. It is excluded using `.gitignore` so the repository stays small and readable.
 
 ## Test the bundle locally
 
 I tested the bundle locally using the following flow:
 
-`rm -rf /tmp/openfn-airgap-final-test`
+```bash
+rm -rf /tmp/openfn-airgap-final-test
+mkdir -p /tmp/openfn-airgap-final-test
 
-`mkdir -p /tmp/openfn-airgap-final-test`
+cp bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz /tmp/openfn-airgap-final-test/
+cd /tmp/openfn-airgap-final-test
 
-`cp bundle/dist/openfn-lightning-airgap-v2.16.6.tar.gz /tmp/openfn-airgap-final-test/`
+tar -xzf openfn-lightning-airgap-v2.16.6.tar.gz
+cd openfn-lightning-airgap-v2.16.6
 
-`cd /tmp/openfn-airgap-final-test`
-
-`tar -xzf openfn-lightning-airgap-v2.16.6.tar.gz`
-
-`cd openfn-lightning-airgap-v2.16.6`
-
-`./check-bundle.sh`
-
-`./generate-env.sh`
-
-`./install.sh`
-
-`./verify.sh`
+./check-bundle.sh
+./generate-env.sh
+./install.sh
+./verify.sh
+```
 
 Expected final result:
 
-`SUCCESS: Lightning is running and responding at http://localhost:4000`
+```text
+SUCCESS: Lightning is running and responding at http://localhost:4000
+```
 
 A manual HTTP check may return:
 
-`HTTP/1.1 302 Found`
-
-`location: /first_setup`
+```text
+HTTP/1.1 302 Found
+location: /first_setup
+```
 
 This is valid and means Lightning is running.
 
